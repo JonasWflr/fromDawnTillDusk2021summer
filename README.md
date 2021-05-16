@@ -4,6 +4,8 @@ creating a streamlit webpage showing race data for the 'from Dawn till Dusk' eve
 It retrievs data from a google spreadsheet and displays it in different charts.
 A logic based on the date, determins what to show. I.e. only show the plots at the day or later, not before.
 
+In one version I was reading many content blocks from a google spreadsheet, this made the website slow (see FromDawnTilDusk_spreadsheet_content.py), I changed it back to hard coded. Deployment is fairly easy and quick, so no need for unnecessary complexity.
+
 ## Hint
 make sure that the spreadsheet REALLY is readable
 

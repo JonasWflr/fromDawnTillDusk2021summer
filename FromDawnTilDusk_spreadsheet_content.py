@@ -127,37 +127,48 @@ def read_data():
         df_data_google.loc[df_data_google['Alterskategorie']=='Junior*innen','Geschlecht'] = 'Junior'
     return(df_data_google)
 
+# READ TEXT CONTENT FROM GOOGLE
+st.cache(ttl=TTL_TEXT)
+def read_text_data():
+    response = requests.get(GOOGLE_SPREADSHEET_CONTENT)
+    assert response.status_code == 200, 'Wrong status code'
+    response_string = response.content.decode('utf-8')
+    TEST = StringIO(response_string)
+    df_data_google = pd.read_csv(TEST, sep=',')
+
+    # reset id to column 'id'
+    df_data_google = df_data_google.set_index('id')
+    return(df_data_google)
+
+st.cache(ttl=TTL_TEXT)
+def get_text_field(id):
+    # returns field from google spreadsheet, used in text
+    # use string from column 'id' as id
+    df_content_google = read_text_data()
+    return(df_content_google.loc[id, 'content'])
+
 # SHOW THE TEXT, WHAT IT IS ETC.
 def show_infos(date_race, remaining_days):
     st.title(':bellhop_bell: __Format/Details__')
     st.write(f'''
-    __Datum:__ 19.06.2021\n
-    __Start:__ 05:29\n
-    __Zielschluss:__ 21:26\n
-    __Dauer:__ Maximal 15h und 57 min (siehe Start und Zielschluss). Hast du keine Lust auf eine Monstertour? Kein Problem,
-    du entscheidest völlig frei wann du startest, wie lange du unterwegs bist und wann dein Tag zu Ende ist. 
-    Das Einzige vorgegebene ist der früheste Start und der späteste Zieleinlauf.\n
-    __Fortbewegungsart:__ Rollski, Velo, Rennen, Kombination . Falls du noch was anderes im Kopf hast, gib uns Bescheid 
-    (Fortbewegung nur durch Muskelkraft).\n
-    __Sieger*in__: Wer am __meisten Kilometer__ in dieser Zeit zurücklegt.
-    Du bist eher vom Typ _Bergfloh_? Dann sammle so viele __positive Höhenmeter__ wie du kannst und sichere dir den 
-    ersten Rang in der Kategorie _Bergpreis_.\n
-    __Ort:__ Du bestimmst selbst wo du unterwegs sein willst: Berge, Flachland, Schwerzenbach, Schwyz, Schweiz, Schweden, etc.\n
-    __Kategorien:__ Frauen, Männer, Junior*innen\n
-    __Messung:__ jede\*r Athlet\*in misst die Kilometer selbst mit einem Gerät/App nach Wunsch.\n
-    __Reporting:__ Kilometer, Höhenmeter und Fortbewegungsart per Text/Whatsapp/etc an Jonas +41 (0)76 309 97 18 
-    bis um Mitternacht am Tag des Rennens (19.06.2021) senden. 
-    Falls du mehrere Sportarten gemacht hast, kannst du es gerne nach den einzelnen aufschlüssen. 
-    (Also z.B. _30 km Rollski und 60 km Velo = 90 km_)
-    In der Rangliste kommst du dann in allen teilgenommenen Sportarten, plus in der Disziplin 'Kombination'.\n  
-    Bei Anregung oder Fragen, meldet euch einfach im WhatsApp-Chat. \n
-    Wir freuen uns auf einen grossartigen Tag!\n
+    __Datum:__ {date_race.strftime('%d.%m.%Y')}\n
+    __Start:__ {get_text_field('time_start')}\n
+    __Zielschluss:__ {get_text_field('time_end')}\n
+    __Fortbewegungsart:__ {get_text_field('format_style')}\n
+    __Sieger*in__: {get_text_field('format_siegerin')}\n
+    __Kategorien:__ {get_text_field('format_kategorien')}\n
+    __Messung:__ {get_text_field('format_messung')}\n
+    __Reporting:__ {get_text_field('format_reporting_fields')} per Text/Whatsapp/etc an {get_text_field('format_reporting_contact')} bis um {get_text_field('format_reporting_time')} am Tag des Rennens ({get_text_field('date')}) senden. 
+    {get_text_field('format_reporting_addon')}
+    
+    Bei Anregung oder Fragen, meldet euch einfach im Chat. 
+
+    Wir freuen uns auf einen grossartigen Tag!
 
     ''')
 
 # SHOW COMPLETE RESULTS WITH PLOTS
 def show_plots_seniors(df_selected, gender):
-    # shows barplots for distance and altitude
     ###########################
     # DISTANCE
     st.header(f':straight_ruler: __Distanz {gender}en__')
@@ -197,7 +208,6 @@ def show_plots_seniors(df_selected, gender):
 
 def show_plots_seniors2(df_input, gender, emoji_dict):
     ###########################
-    # shows scatterplot
     st.header(f'__{gender}en__')
 
     df_input = df_input[
@@ -281,7 +291,6 @@ def show_combined_plot(df_selected, remaining_days):
         ).add_selection(selection_geschlecht, selection_technik)
         st.altair_chart(chart_combi, use_container_width=True)
 
-st.cache(ttl=TTL_RESULTS)
 def define_remaining_days_and_df():
     #################
     # DATE STUFF
@@ -291,11 +300,11 @@ def define_remaining_days_and_df():
 
     # RACE DATE
     # GET IT FORM SPREADSHEET
-    #date_race_string = get_text_field('date')
-    #date_race = datetime.datetime.strptime(date_race_string, '%d.%m.%Y').date()
+    date_race_string = get_text_field('date')
+    date_race = datetime.datetime.strptime(date_race_string, '%d.%m.%Y').date()
 
     # for testing:
-    date_race = datetime.date(2021, 6, 19)
+    #date_race = datetime.date(2021, 3, 6)
     remaining_days = (date_race - today).days
     df_data_google = read_data()
     df_selected = df_data_google
@@ -310,11 +319,13 @@ def define_remaining_days_and_df():
     df_selected = df_selected.set_index('id',drop=False)
     return(date_race, remaining_days, df_selected)
 
-st.cache(ttl=TTL_RESULTS)
+def count_by_gender(df_selected,gender):
+    return(df_selected[df_selected['Geschlecht'] == gender]['Geschlecht'].count())
+
 def show_prerace_stuff_vert(df_selected, remaining_days):
     if(remaining_days)>0:
         st.title(':sleeping_accommodation: __Nur noch {} Mal schlafen!__'.format(remaining_days))
-        st.write("Noch nicht angemeldet? [Melde dich jetzt an!](https://docs.google.com/forms/d/e/1FAIpQLSfcnlOpqZPQ_BMfS3BwWtL0qHRlez_JwCXmpf3dsfutTuU2mQ/viewform)")
+        st.write(f"Noch nicht angemeldet? [Melde dich jetzt an!]({get_text_field('prerace_form_link')})")
         n_participants = df_selected['id'].count()
         st.subheader('Angemeldet sind momentan {} Athlet\*innen'.format(n_participants))
 
@@ -408,8 +419,7 @@ def main():
     date_race, remaining_days, df_selected = define_remaining_days_and_df()
 
     # SOME INTRO TEXT BEFORE TITLE
-    st.write("Nachdem die erste Auflage im Winter so erfolgreich war, versuchen wir es nun gleich nochmals, "
-             "diesmals im Sommer. Sprich: Mehr Zeit! Mehr Sonne! Mehr Spass!")
+    st.write(f"{get_text_field('pretitle_text')}")
     # SHOW GENERAL RULES AND INFOS
     show_infos(date_race, remaining_days)
 
@@ -418,7 +428,7 @@ def main():
 
     # SHOW THE RESULTS AND PLOTS
     st.title(':trophy: __Resultate__')
-    st.write("Pro Fortbewegungsart und Geschlecht gibt es eine Rangliste, aufgeschlüsselt nach Kilometer und Höhenmeter.")
+    st.write(get_text_field('results_text'))
     emoji_dict = {"Rollski": ":muscle:",
                   "Velo": ":bike:",
                   "Rennen": ":athletic_shoe:"
@@ -433,7 +443,7 @@ def main():
     # FOOTER
     #st.write(':palm_tree: :hibiscus: :palm_tree: :hibiscus: :palm_tree: :hibiscus: :palm_tree: :hibiscus: :palm_tree: :hibiscus: :palm_tree: :hibiscus: :palm_tree: :hibiscus: :palm_tree:')
     st.write('----------------------------------------------')
-    st.write(":palm_tree: Mehr Infos gibt es in unserer WhatsApp-Gruppe. :palm_tree:")
+    st.write(f"{get_text_field('footer')}")
 
 main()
 
